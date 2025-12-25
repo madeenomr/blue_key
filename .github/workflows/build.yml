@@ -1,0 +1,30 @@
+name: Build APK
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      # هذا هو السطر الذي يركب أدوات فلاتر (الذي كان ناقصاً)
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.19.0'
+          channel: 'stable'
+      
+      # إنشاء ملفات الأندرويد الناقصة
+      - run: flutter create --project-name blue_key .
+      
+      # إضافة أذونات البلوتوث للملفات المخفية
+      - name: Add Bluetooth Permissions
+        run: |
+          sed -i 's|<application|<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />\n    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />\n    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />\n    <application|' android/app/src/main/AndroidManifest.xml
+          
+      - run: flutter pub get
+      - run: flutter build apk --release
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blue-key-app
+          path: build/app/outputs/flutter-apk/app-release.apk
