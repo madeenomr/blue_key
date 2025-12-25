@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 void main() {
@@ -13,17 +14,20 @@ class BlueKeyHome extends StatefulWidget {
 }
 
 class _BlueKeyHomeState extends State<BlueKeyHome> {
-  String status = "غير متصل";
+  String status = "اضغط للاتصال";
+  static const platform = MethodChannel('com.example.blue_key/bluetooth');
 
-  // دالة طلب الإذن عند التشغيل
   Future<void> requestPermissions() async {
-    // نطلب إذن البلوتوث للأجهزة الحديثة (Android 12+)
-    await [
-      Permission.bluetooth,
-      Permission.bluetoothConnect,
-      Permission.bluetoothAdvertise,
-      Permission.bluetoothScan,
-    ].request();
+    await [Permission.bluetooth, Permission.bluetoothConnect].request();
+  }
+
+  Future<void> openBluetoothSettings() async {
+    try {
+      await platform.invokeMethod('openSettings');
+      setState(() { status = "جاري فتح البلوتوث..."; });
+    } catch (e) {
+      setState(() { status = "فشل: $e"; });
+    }
   }
 
   @override
@@ -35,70 +39,35 @@ class _BlueKeyHomeState extends State<BlueKeyHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900], // لون داكن مثل الكيبورد
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text("BlueKey ⌨️"),
-        backgroundColor: Colors.black,
+        title: const Text("BlueKey V2 🚀", style: TextStyle(color: Colors.white)),
+        backgroundColor: Colors.deepOrange, // لون جديد
+        centerTitle: true,
       ),
       body: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // شاشة الحالة
-          Container(
-            padding: const EdgeInsets.all(20),
-            color: Colors.black54,
-            width: double.infinity,
-            child: Text(
-              status,
-              style: const TextStyle(color: Colors.greenAccent, fontSize: 18),
-              textAlign: TextAlign.center,
+          Text(
+            status,
+            style: const TextStyle(color: Colors.white, fontSize: 20),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 50),
+          Center(
+            child: ElevatedButton.icon(
+              onPressed: openBluetoothSettings,
+              icon: const Icon(Icons.bluetooth),
+              label: const Text("ربط بالبلوتوث"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.deepOrange, // زر برتقالي لتميز التحديث
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+              ),
             ),
           ),
-          
-          const Spacer(),
-          
-          // منطقة الماوس (Touchpad)
-          Container(
-            height: 200,
-            margin: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.grey[800],
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.white24),
-            ),
-            child: const Center(
-              child: Text("منطقة الماوس", style: TextStyle(color: Colors.white54)),
-            ),
-          ),
-          
-          const Spacer(),
-          
-          // أزرار الكيبورد
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildKey("ESC"),
-              _buildKey("SPACE"),
-              _buildKey("ENTER"),
-            ],
-          ),
-          const SizedBox(height: 30),
         ],
       ),
-    );
-  }
-
-  Widget _buildKey(String label) {
-    return ElevatedButton(
-      onPressed: () {
-        setState(() {
-          status = "تم ضغط: $label";
-        });
-      },
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-        backgroundColor: Colors.grey[700],
-      ),
-      child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
     );
   }
 }
