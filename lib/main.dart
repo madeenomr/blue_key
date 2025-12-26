@@ -1,81 +1,84 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 void main() {
-  runApp(const MaterialApp(home: MousePadScreen()));
+  runApp(const MaterialApp(home: MouseScreen()));
 }
 
-class MousePadScreen extends StatefulWidget {
-  const MousePadScreen({super.key});
-
+class MouseScreen extends StatefulWidget {
+  const MouseScreen({super.key});
   @override
-  State<MousePadScreen> createState() => _MousePadScreenState();
+  State<MouseScreen> createState() => _MouseScreenState();
 }
 
-class _MousePadScreenState extends State<MousePadScreen> {
-  // متغيرات لحفظ حركة الإصبع وعرضها على الشاشة للتجربة
-  double moveX = 0;
-  double moveY = 0;
-  String status = "حرك إصبعك في المربع بالأسفل";
+class _MouseScreenState extends State<MouseScreen> {
+  static const platform = MethodChannel('com.example.blue_key/bluetooth');
+  String status = "1. اقترن بالهاتف الآخر\n2. حرك إصبعك هنا";
+
+  // طلب الأذونات عند التشغيل
+  @override
+  void initState() {
+    super.initState();
+    requestPermissions();
+  }
+
+  Future<void> requestPermissions() async {
+    await [
+      Permission.bluetooth,
+      Permission.bluetoothConnect,
+      Permission.bluetoothAdvertise
+    ].request();
+  }
+
+  // دالة إرسال الحركة للكود الأصلي
+  void sendMove(double x, double y) {
+    // تقليل الحساسية قليلاً وإرسالها كأرقام صحيحة
+    int dx = (x * 2.5).toInt(); // سرعة الماوس
+    int dy = (y * 2.5).toInt();
+    
+    // إرسال فقط إذا كانت هناك حركة فعلية
+    if (dx != 0 || dy != 0) {
+      platform.invokeMethod('sendMouse', {
+        "dx": dx,
+        "dy": dy,
+        "left": false, // سنبرمج الأزرار لاحقاً
+        "right": false
+      }).catchError((e) {
+        // تجاهل الأخطاء لعدم إزعاج المستخدم
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[900], // خلفية داكنة
-      appBar: AppBar(
-        title: const Text("BlueKey Mouse 🖱️", style: TextStyle(color: Colors.white)),
-        backgroundColor: Colors.black,
-        centerTitle: true,
-      ),
+      backgroundColor: Colors.black,
+      appBar: AppBar(title: const Text("BlueKey Mouse 🖱️"), backgroundColor: Colors.blueGrey),
       body: Column(
         children: [
-          // شاشة عرض المعلومات (مؤقتة للتأكد أن اللمس يعمل)
           Container(
-            padding: const EdgeInsets.all(20),
-            height: 150,
+            padding: const EdgeInsets.all(10),
+            color: Colors.white10,
             width: double.infinity,
-            color: Colors.black54,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(status, style: const TextStyle(color: Colors.white, fontSize: 18)),
-                const SizedBox(height: 20),
-                Text("Horizontal (X): ${moveX.toStringAsFixed(2)}", style: const TextStyle(color: Colors.greenAccent)),
-                Text("Vertical (Y): ${moveY.toStringAsFixed(2)}", style: const TextStyle(color: Colors.greenAccent)),
-              ],
-            ),
+            child: Text(status, style: const TextStyle(color: Colors.greenAccent), textAlign: TextAlign.center),
           ),
-          
-          // منطقة الماوس (Trackpad Area)
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.grey[800],
+                color: Colors.grey[850],
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white24, width: 2),
+                border: Border.all(color: Colors.blueGrey),
               ),
-              // هنا السحر: كاشف الحركة
               child: GestureDetector(
-                // هذه الدالة تعمل عندما تحرك إصبعك (Dragging)
                 onPanUpdate: (details) {
-                  setState(() {
-                    // details.delta تعطينا الفرق في الحركة منذ آخر لحظة
-                    moveX = details.delta.dx; 
-                    moveY = details.delta.dy;
-                    status = "جاري التحريك...";
-                    // ملاحظة: هنا مستقبلاً سنضع كود إرسال البلوتوث
-                  });
+                  sendMove(details.delta.dx, details.delta.dy);
+                  setState(() => status = "جاري الإرسال...");
                 },
-                // هذه الدالة تعمل عندما ترفع إصبعك
-                onPanEnd: (details) {
-                  setState(() {
-                    moveX = 0;
-                    moveY = 0;
-                    status = "توقف التحريك";
-                  });
-                },
+                onPanEnd: (details) => setState(() => status = "متصل - جاهز"),
                 child: const Center(
-                  child: Icon(Icons.touch_app, size: 50, color: Colors.white24),
+                  child: Icon(Icons.touch_app, size: 60, color: Colors.white12),
                 ),
               ),
             ),
