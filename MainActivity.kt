@@ -4,7 +4,6 @@ import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothHidDevice
-import android.bluetooth.BluetoothHidDeviceAppOpAttr
 import android.bluetooth.BluetoothHidDeviceAppQosSettings
 import android.bluetooth.BluetoothHidDeviceAppSdpSettings
 import android.bluetooth.BluetoothManager
@@ -17,16 +16,14 @@ import androidx.core.app.ActivityCompat
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import java.nio.ByteBuffer
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.blue_key/bluetooth"
     private var hidDevice: BluetoothHidDevice? = null
-    private var bluetoothAdapter: BluetoothAdapter? = null
     private var hostDevice: BluetoothDevice? = null
 
-    // تعريف "هوية الماوس" (هذا ما يخبر الجهاز الآخر أننا ماوس)
+    // تعريف هوية الماوس
     private val MOUSE_ID = 2.toByte()
     private val MOUSE_REPORT_DESC = byteArrayOf(
         0x05, 0x01, 0x09, 0x02, 0xA1.toByte(), 0x01, 0x09, 0x01, 0xA1.toByte(), 0x00,
@@ -40,14 +37,13 @@ class MainActivity : FlutterActivity() {
         super.configureFlutterEngine(flutterEngine)
         
         val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        bluetoothAdapter = bluetoothManager.adapter
+        val bluetoothAdapter = bluetoothManager.adapter
 
-        // الاتصال بخدمة HID في النظام
         bluetoothAdapter?.getProfileProxy(this, object : BluetoothProfile.ServiceListener {
             override fun onServiceConnected(profile: Int, proxy: BluetoothProfile) {
                 if (profile == BluetoothProfile.HID_DEVICE) {
                     hidDevice = proxy as BluetoothHidDevice
-                    registerApp() // تسجيل التطبيق كماوس فور الاتصال
+                    registerApp()
                 }
             }
             override fun onServiceDisconnected(profile: Int) {}
@@ -72,8 +68,9 @@ class MainActivity : FlutterActivity() {
         
         val sdp = BluetoothHidDeviceAppSdpSettings("BlueKey Mouse", "Mobile Mouse", "Flutter", 0x00, MOUSE_REPORT_DESC)
         val qos = BluetoothHidDeviceAppQosSettings(BluetoothHidDeviceAppQosSettings.SERVICE_GUARANTEED, 800, 9, 0, 11250, -1)
-        val appOp = BluetoothHidDeviceAppOpAttr(true, true)
-
+        
+        // تم حذف السطر المسبب للمشكلة (AppOpAttr)
+        
         hidDevice?.registerApp(sdp, qos, qos, Executors.newCachedThreadPool(), object : BluetoothHidDevice.Callback() {
             override fun onConnectionStateChanged(device: BluetoothDevice?, state: Int) {
                 if (state == BluetoothProfile.STATE_CONNECTED) hostDevice = device
@@ -89,7 +86,6 @@ class MainActivity : FlutterActivity() {
             if (left) buttons = buttons or 1
             if (right) buttons = buttons or 2
             
-            // تحضير حزمة البيانات (Buttons, X, Y)
             val report = ByteArray(3)
             report[0] = buttons.toByte()
             report[1] = dx.toByte()
